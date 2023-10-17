@@ -81,7 +81,7 @@ package hpdcache_params_pkg;
     `endif
 
     `ifdef PITON_ARIANE
-        localparam int unsigned PARAM_CL_WORDS = `CONFIG_L1D_CACHELINE_WIDTH/PARAM_WORD_WIDTH; //16 Bytes per cache-line harcoded
+        localparam int unsigned PARAM_CL_WORDS = `CONFIG_L1D_CACHELINE_WIDTH/PARAM_WORD_WIDTH;
     `else
         localparam int unsigned PARAM_CL_WORDS = `CONF_HPDCACHE_CL_WORDS;
     `endif

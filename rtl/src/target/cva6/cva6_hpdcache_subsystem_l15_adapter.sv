@@ -123,19 +123,20 @@ module cva6_hpdcache_subsystem_l15_adapter import ariane_pkg::*;import wt_cache_
 
   // Internal types of the adapter
   // {{{
-  typedef logic [ariane_pkg::ICACHE_LINE_WIDTH-1:0]  icache_resp_data_t;
+  typedef logic [ariane_pkg::ICACHE_LINE_WIDTH-1:0]                   icache_resp_data_t;
+  typedef logic [wt_cache_pkg::L1_MAX_DATA_PACKETS_BITS_WIDTH-1:0]    l15_resp_data_t;
 
   //Unified structure for r and w responses
   typedef struct packed {
 
-       hpdcache_mem_error_e                      mem_resp_error; //mem_resp_r_error/mem_resp_w_error
-       hpdcache_mem_id_t                         mem_resp_id;    //mem_resp_r_id/mem_resp_w_id
-       logic [ariane_pkg::ICACHE_LINE_WIDTH-1:0] mem_resp_r_data; //Fixed to 32B (OP ICACHE line size)
-       logic                                     mem_resp_r_last;
-       logic                                     mem_resp_w_is_atomic;
-       logic                                     mem_inval_icache_valid;
-       logic                                     mem_inval_dcache_valid;
-       hpdcache_pkg::hpdcache_req_t              mem_inval;
+       hpdcache_mem_error_e mem_resp_error; //mem_resp_r_error/mem_resp_w_error
+       hpdcache_mem_id_t    mem_resp_id;    //mem_resp_r_id/mem_resp_w_id
+       l15_resp_data_t      mem_resp_r_data; 
+       logic                mem_resp_r_last;
+       logic                mem_resp_w_is_atomic;
+       logic                mem_inval_icache_valid;
+       logic                mem_inval_dcache_valid;
+       hpdcache_pkg::hpdcache_req_t mem_inval;
   } hpdcache_mem_resp_t;
   //  }}}
 
@@ -221,7 +222,7 @@ module cva6_hpdcache_subsystem_l15_adapter import ariane_pkg::*;import wt_cache_
   assign icache_miss_resp_meta_rok = icache_miss_resp_w,
          icache_miss_resp_wok = 1'b1,
          icache_miss_resp_meta_id = icache_miss_resp_wdata.mem_resp_id,
-         icache_miss_resp_data_rdata = icache_miss_resp_wdata.mem_resp_r_data;
+         icache_miss_resp_data_rdata = icache_miss_resp_wdata.mem_resp_r_data[ariane_pkg::ICACHE_LINE_WIDTH-1:0];
   //    }}}
   //  }}}
 
@@ -431,6 +432,7 @@ module cva6_hpdcache_subsystem_l15_adapter import ariane_pkg::*;import wt_cache_
   hpdcache_to_l15 #(
        .N                        (5), // Number of request types
        .SwapEndianess            (ArianeCfg.SwapEndianess),
+       .HPDcacheMemDataWidth     (HPDcacheMemDataWidth),
        .hpdcache_mem_req_t       (hpdcache_mem_req_t),
        .hpdcache_mem_req_w_t     (hpdcache_mem_req_w_t),
        .hpdcache_mem_id_t        (hpdcache_mem_id_t),
