@@ -23,7 +23,7 @@
  *  Description   : L1.5, L1I and HPDC adapter
  *  History       :
  */
-module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
+module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*; import ariane_pkg::*;
 //  Parameters
 //  {{{
 #(
@@ -122,8 +122,8 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
     logic                                       req_is_atomic;
     ariane_pkg::amo_t                           req_amo_op_type;
     // Data & Byte mask sended by the request
-    logic [HPDcacheMemDataWidth-1:0]            req_wdata;
-    logic [HPDcacheMemDataWidth/8-1:0]          req_wbe;
+    logic [HPDcacheMemDataWidth-1:0]                  req_wdata;
+    logic [(hpdcache_pkg::HPDCACHE_WORD_WIDTH/8)-1:0] req_wbe;
     // FSM State 
     thread_id_fsm_t                             th_state_q, th_state_d;
     // HPDC Req ID
@@ -145,6 +145,8 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
     hpdcache_pkg::hpdcache_mem_size_t           req_wt_size;
     logic [2:0]                                 req_wt_offset;
     logic [$clog2(HPDcacheMemDataWidth/8)-1:0]  first_one_pos,num_ones;
+    // L1.5 Response data
+    logic [wt_cache_pkg::L1_MAX_DATA_PACKETS_BITS_WIDTH-1:0] resp_data;
     // Invalidations
     logic                                       mem_inval_icache_valid;
     logic                                       mem_inval_dcache_valid;
@@ -174,7 +176,7 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
                                                 // IMiss Unch: 4B Cach: 32B cacheline; Load/Store/AMO Max 16B cacheline (other possible sizes: 1,2,4,8B)
            l15_req_o.l15_size                 = (req_is_ifill)                              ? ((req_i.mem_req_cacheable) ? 3'b111 : IcacheNoCachableSize) : // IMiss     
                                                 (req_is_write  && ~WriteByteMaskEnabled)    ? req_wt_size :                                   // Store (1/2/4/8) 
-                                                (req_i.mem_req_size == 3'b100)              ? 3'b111 : req_i.mem_req_size,                    // Load & Unc. Load &  Unc. Store (1/2/4/8) & AMO (4/8) & Store (8)
+                                                (req_i.mem_req_size >= 3'b100)              ? 3'b111 : req_i.mem_req_size,                    // Load & Unc. Load &  Unc. Store (1/2/4/8) & AMO (4/8) & Store (8)
            l15_req_o.l15_threadid             = req_thid, 
                                                 // If WBME=0, the store req. hast to be aligned to its size (by default its aligned to WBUF entry size). 
            l15_req_o.l15_address              = (req_is_write  && ~WriteByteMaskEnabled)    ? req_wt_address : req_i.mem_req_addr,
@@ -192,7 +194,15 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
            l15_req_o.l15_blockinitstore       = '0, // unused in openpiton
            l15_req_o.l15_l1rplway             = '0; // Not used for this adapter
 `ifdef WRITE_BYTE_MASK
-    assign l15_req_o.l15_be                   = swendian8B(req_wbe[0 +: 8] | req_wbe[HPDcacheMemDataWidth/8-1 -: 8]);
+    assign l15_req_o.l15_be                   = swendian8B(req_wbe[(hpdcache_pkg::HPDCACHE_WORD_WIDTH/8)-1:0]);
+    
+    always_comb 
+    begin: gen_be_mask_comb
+        req_wbe[(hpdcache_pkg::HPDCACHE_WORD_WIDTH/8)-1:0] = '0;
+        for (int unsigned i=0; i < int'(HPDcacheMemDataWidth/hpdcache_pkg::HPDCACHE_WORD_WIDTH); i++) begin
+            req_wbe[(hpdcache_pkg::HPDCACHE_WORD_WIDTH/8)-1:0] |= req_data_i.mem_req_w_be[(hpdcache_pkg::HPDCACHE_WORD_WIDTH/8)*i +: (hpdcache_pkg::HPDCACHE_WORD_WIDTH/8)]; 
+        end
+    end 
 `endif
 
 
@@ -206,9 +216,7 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
 
     // Data sended by the request
     // If the request is a AMO_CLR, its translated as a AMO_AND. Therefore, the data sended has to be inverted
-    assign req_wdata                          = (req_is_atomic & req_i.mem_req_atomic==HPDCACHE_MEM_ATOMIC_CLR) ? ~req_data_i.mem_req_w_data : req_data_i.mem_req_w_data,
-           req_wbe                            = req_data_i.mem_req_w_be[HPDcacheMemDataWidth/8-1:0]; 
-    
+    assign req_wdata                          = (req_is_atomic & req_i.mem_req_atomic==HPDCACHE_MEM_ATOMIC_CLR) ? ~req_data_i.mem_req_w_data : req_data_i.mem_req_w_data;
     // }}}
 
 
@@ -226,14 +234,7 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
            resp_o.mem_resp_id                 = hpdc_tid_q[l15_rtrn_i.l15_threadid],
            resp_o.mem_resp_r_last             = '1,                                                                                      // OpenPiton sends the entire data in 1 cycle
            resp_o.mem_resp_w_is_atomic        = sc_pass,               
-           resp_o.mem_resp_r_data             = (SwapEndianess) ? {swendian64(l15_rtrn_i.l15_data_3),
-                                                                    swendian64(l15_rtrn_i.l15_data_2),
-                                                                    swendian64(l15_rtrn_i.l15_data_1),
-                                                                    swendian64(l15_rtrn_i.l15_data_0)} :
-                                                                  {l15_rtrn_i.l15_data_3,
-                                                                    l15_rtrn_i.l15_data_2,
-                                                                    l15_rtrn_i.l15_data_1,
-                                                                    l15_rtrn_i.l15_data_0};
+           resp_o.mem_resp_r_data             = resp_data; 
 
     // Invalidation request translated as a CMO 
     assign resp_o.mem_inval_icache_valid      = mem_inval_icache_valid,
@@ -343,7 +344,7 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
         // Generates the initial value of the free thread id list
     always_comb
     begin: free_thid_list_init_comb
-        for (int i = 0; i < NUM_THREAD_IDS; i++) begin
+        for (int unsigned i = 0; i < NUM_THREAD_IDS; i++) begin
             free_thid_list[i] = i;
         end
     end
@@ -378,14 +379,14 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
     begin: lzc_comb
         first_one_pos = '0;
         for (int unsigned i = int'(HPDcacheMemDataWidth/8); i > 0; i--) begin
-            if (req_wbe[i-1]) begin
+            if (req_data_i.mem_req_w_be[i-1]) begin
                 first_one_pos = i-1;
                 break;
             end
         end
     end
 
-    assign num_ones =  $countones(req_wbe);
+    assign num_ones =  $countones(req_data_i.mem_req_w_be);
 
     always_comb 
     begin:rst_size_comb
@@ -417,6 +418,20 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
             end
         endcase
     end
+    // }}}
+
+    // Swap Endiannes if its required of the L1.5 response data
+    // {{{
+    always_comb
+    begin : check_swap_comb
+        if (SwapEndianess) begin : swap_comb // Openpiton is big endian
+            for (int unsigned i=0;i < wt_cache_pkg::L1_MAX_DATA_PACKETS; i++) begin
+                resp_data[i*64 +: 64] = swendian64(l15_rtrn_i.l15_data[i*64 +: 64]);
+            end
+        end else begin : noswap_comb
+                resp_data = l15_rtrn_i.l15_data[wt_cache_pkg::L1_MAX_DATA_PACKETS_BITS_WIDTH-1:0];
+        end
+    end 
     // }}}
 
     // AMO support
@@ -456,10 +471,10 @@ module hpdcache_to_l15 import hpdcache_pkg::*; import wt_cache_pkg::*;
     );
 
     assign sc_pass = (l15_rtrn_i.l15_returntype!=L15_CPX_RESTYPE_ATOMIC_RES) ? 1'b0 : 
-                     (|l15_rtrn_i.l15_data_0) ? 1'b0 : 1'b1;       // AMO_SC pass if data=0
+                     (|l15_rtrn_i.l15_data) ? 1'b0 : 1'b1;       // AMO_SC pass if data=0
 
     assign sc_fail = (l15_rtrn_i.l15_returntype!=L15_CPX_RESTYPE_ATOMIC_RES) ? 1'b0 : 
-                     (|l15_rtrn_i.l15_data_0) ? 1'b1 : 1'b0;       // AMO_SC fail if data!=0
+                     (|l15_rtrn_i.l15_data) ? 1'b1 : 1'b0;       // AMO_SC fail if data!=0
         // }}}
     // }}}
 
