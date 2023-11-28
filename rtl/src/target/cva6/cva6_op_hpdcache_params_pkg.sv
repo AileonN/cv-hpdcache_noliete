@@ -24,6 +24,10 @@
  *                  can be overriden by Verilog preprocessor definitions.
  *  History       :
  */
+`ifdef PITON_ARIANE
+  `include "l15.tmp.h"
+  `include "define.tmp.h"
+`endif
 package hpdcache_params_pkg;
     //  Definition of global constants for the HPDcache data and directory
     //  {{{
@@ -36,13 +40,31 @@ package hpdcache_params_pkg;
     `ifndef CONF_HPDCACHE_SETS
         `define CONF_HPDCACHE_SETS 128
     `endif
-    localparam int unsigned PARAM_SETS = `CONF_HPDCACHE_SETS;
+
+    `ifdef PITON_ARIANE
+        `ifndef CONFIG_L1D_SIZE
+            localparam int unsigned PARAM_SETS = 128;
+        `else 
+            localparam int unsigned PARAM_SETS = (`CONFIG_L1D_SIZE/`CONFIG_L1D_ASSOCIATIVITY)/(`CONFIG_L1D_CACHELINE_WIDTH/8);
+        `endif
+    `else
+        localparam int unsigned PARAM_SETS = `CONF_HPDCACHE_SETS;
+    `endif
 
     //  HPDcache number of ways
     `ifndef CONF_HPDCACHE_WAYS
         `define CONF_HPDCACHE_WAYS 4
     `endif
-    localparam int unsigned PARAM_WAYS = `CONF_HPDCACHE_WAYS;
+
+    `ifdef PITON_ARIANE
+        `ifndef CONFIG_L1D_ASSOCIATIVITY
+            localparam int unsigned PARAM_WAYS = 4;
+        `else
+            localparam int unsigned PARAM_WAYS = `CONFIG_L1D_ASSOCIATIVITY; 
+        `endif
+    `else 
+        localparam int unsigned PARAM_WAYS = `CONF_HPDCACHE_WAYS;
+    `endif
 
     //  HPDcache word width (bits)
     `ifndef CONF_HPDCACHE_WORD_WIDTH
@@ -54,7 +76,12 @@ package hpdcache_params_pkg;
     `ifndef CONF_HPDCACHE_CL_WORDS
         `define CONF_HPDCACHE_CL_WORDS 8
     `endif
-    localparam int unsigned PARAM_CL_WORDS = `CONF_HPDCACHE_CL_WORDS;
+
+    `ifdef PITON_ARIANE
+        localparam int unsigned PARAM_CL_WORDS = `CONFIG_L1D_CACHELINE_WIDTH/PARAM_WORD_WIDTH; //16 Bytes per cache-line harcoded
+    `else
+        localparam int unsigned PARAM_CL_WORDS = `CONF_HPDCACHE_CL_WORDS;
+    `endif
 
     //  HPDcache number of words in the request data channels (request and response)
     `ifndef CONF_HPDCACHE_REQ_WORDS
@@ -100,7 +127,12 @@ package hpdcache_params_pkg;
     `ifndef CONF_HPDCACHE_ACCESS_WORDS
         `define CONF_HPDCACHE_ACCESS_WORDS 4
     `endif
-    localparam int unsigned PARAM_ACCESS_WORDS = `CONF_HPDCACHE_ACCESS_WORDS;
+
+    `ifdef PITON_ARIANE
+        localparam int unsigned PARAM_ACCESS_WORDS = 2;
+    `else
+        localparam int unsigned PARAM_ACCESS_WORDS = `CONF_HPDCACHE_ACCESS_WORDS;
+    `endif
     //  }}}
 
     //  Definition of constants and types for the Miss Status Holding Register (MSHR)
@@ -108,7 +140,12 @@ package hpdcache_params_pkg;
     `ifndef CONF_HPDCACHE_MSHR_SETS
         `define CONF_HPDCACHE_MSHR_SETS 64
     `endif
-    localparam int unsigned PARAM_MSHR_SETS = `CONF_HPDCACHE_MSHR_SETS;
+
+    `ifdef PITON_ARIANE
+        localparam int unsigned PARAM_MSHR_SETS = 2;
+    `else
+        localparam int unsigned PARAM_MSHR_SETS = `CONF_HPDCACHE_MSHR_SETS;
+    `endif
 
     //  HPDcache MSHR number of ways
     `ifndef CONF_HPDCACHE_MSHR_WAYS
@@ -145,7 +182,11 @@ package hpdcache_params_pkg;
     `ifndef CONF_HPDCACHE_WBUF_DIR_ENTRIES
         `define CONF_HPDCACHE_WBUF_DIR_ENTRIES 16
     `endif
-    localparam int unsigned PARAM_WBUF_DIR_ENTRIES = `CONF_HPDCACHE_WBUF_DIR_ENTRIES;
+    `ifdef PITON_ARIANE
+        localparam int unsigned PARAM_WBUF_DIR_ENTRIES = 8;
+    `else
+        localparam int unsigned PARAM_WBUF_DIR_ENTRIES = `CONF_HPDCACHE_WBUF_DIR_ENTRIES;
+    `endif
 
     `ifndef CONF_HPDCACHE_WBUF_DATA_ENTRIES
         `define CONF_HPDCACHE_WBUF_DATA_ENTRIES 4
@@ -155,7 +196,12 @@ package hpdcache_params_pkg;
     `ifndef CONF_HPDCACHE_WBUF_WORDS
         `define CONF_HPDCACHE_WBUF_WORDS PARAM_REQ_WORDS
     `endif
-    localparam int unsigned PARAM_WBUF_WORDS = `CONF_HPDCACHE_WBUF_WORDS;
+    
+    `ifdef PITON_ARIANE
+        localparam int unsigned PARAM_WBUF_WORDS = 1;
+    `else
+        localparam int unsigned PARAM_WBUF_WORDS = `CONF_HPDCACHE_WBUF_WORDS;
+    `endif
 
     `ifndef CONF_HPDCACHE_WBUF_TIMECNT_WIDTH
         `define CONF_HPDCACHE_WBUF_TIMECNT_WIDTH 4

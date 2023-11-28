@@ -27,6 +27,7 @@
 ${HPDCACHE_DIR}/rtl/src/hpdcache_pkg.sv
 ${HPDCACHE_DIR}/rtl/src/common/hpdcache_demux.sv
 ${HPDCACHE_DIR}/rtl/src/common/hpdcache_fifo_reg.sv
+${HPDCACHE_DIR}/rtl/src/common/hpdcache_fifo_reg_initialized.sv
 ${HPDCACHE_DIR}/rtl/src/common/hpdcache_fxarb.sv
 ${HPDCACHE_DIR}/rtl/src/common/hpdcache_rrarb.sv
 ${HPDCACHE_DIR}/rtl/src/common/hpdcache_mux.sv
@@ -43,6 +44,9 @@ ${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_req_write_arbiter.sv
 ${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_resp_demux.sv
 ${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_to_axi_read.sv
 ${HPDCACHE_DIR}/rtl/src/utils/hpdcache_mem_to_axi_write.sv
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_l15_req_arbiter.sv
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_l15_resp_demux.sv
+${HPDCACHE_DIR}/rtl/src/utils/hpdcache_to_l15.sv
 ${HPDCACHE_DIR}/rtl/src/hwpf_stride/hwpf_stride_pkg.sv
 ${HPDCACHE_DIR}/rtl/src/hwpf_stride/hwpf_stride.sv
 ${HPDCACHE_DIR}/rtl/src/hwpf_stride/hwpf_stride_arb.sv
